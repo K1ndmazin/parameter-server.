@@ -59,11 +59,18 @@ std::vector<std::pair<float, float>> make_data(size_t n, unsigned seed = 42) {
 
 int main(){
     server first_server{{0.0f, 0.0f}};
-    Worker first_worker;
-    first_worker.batch = make_data(100);
+    std::vector<Worker> workers(4); 
+    int i=0;
+    for ( auto& worker : workers){
+        worker.batch = make_data(100, i);
+        ++i;
+    }
+    
     for (int i = 0; i< 1000; ++i){
-    first_worker.snapshot_weights = first_server.pull();
-    first_server.push(first_worker.calculate_gradient());
+        for (size_t x= 0; x< workers.size(); ++x){
+            workers[x].snapshot_weights = first_server.pull();
+            first_server.push(workers[x].calculate_gradient());
+        }
     }
     std::vector<float> final_snapshot = first_server.pull();
     std:: cout << "W: " << final_snapshot[0] << " B: " << final_snapshot[1] << "\n";
