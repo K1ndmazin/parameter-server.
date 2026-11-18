@@ -2,6 +2,7 @@
 #include <utility>
 #include <vector>
 #include <random>
+#include <mutex>
 
 struct Worker {
     std::vector<float> snapshot_weights;
@@ -24,14 +25,17 @@ struct Worker {
 class server { 
     private:
     std::vector<float> global_weights;
+    mutable std::mutex mtx_;
     float lr = 0.01f;
     public:
-    std::vector<float> pull(){
+    std::vector<float> pull()const {
+        std::lock_guard<std::mutex> lock(mtx_);
         return global_weights;
     }
     explicit server(std::vector<float> initial_weights) : global_weights{std::move(initial_weights)} {}
 
 bool push(const std::vector<float>& new_gradients){
+        std::lock_guard<std::mutex> lock(mtx_);
         if (global_weights.size() == new_gradients.size()){
             for (size_t index = 0; index < new_gradients.size(); ++index){
                 global_weights[index] = global_weights[index] - (lr * new_gradients[index]);
@@ -39,7 +43,7 @@ bool push(const std::vector<float>& new_gradients){
               return true;
         }
         return false;
-    };
+    }
 };
 std::vector<std::pair<float, float>> make_data(size_t n, unsigned seed = 42) {
     std::mt19937 engine(seed);
