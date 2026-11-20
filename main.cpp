@@ -3,6 +3,7 @@
 #include <vector>
 #include <random>
 #include <mutex>
+#include <thread>
 
 struct Worker {
     std::vector<float> snapshot_weights;
@@ -65,18 +66,26 @@ int main(){
     server first_server{{0.0f, 0.0f}};
     std::vector<Worker> workers(4); 
     int i=0;
+    
     for ( auto& worker : workers){
         worker.batch = make_data(100, i);
         ++i;
     }
-    
-    for (int i = 0; i< 1000; ++i){
-        for (size_t x= 0; x< workers.size(); ++x){
-            workers[x].snapshot_weights = first_server.pull();
-            first_server.push(workers[x].calculate_gradient());
+    std::vector<std::thread> threads;
+    for (size_t worker_idx=0; worker_idx < workers.size(); ++worker_idx){
+        threads.emplace_back([&workers, worker_idx, &first_server]() {
+        for (int i = 0; i< 1000; ++i){
+            workers[worker_idx].snapshot_weights = first_server.pull();
+            first_server.push(workers[worker_idx].calculate_gradient());
+            
         }
+        
+    });
+    }
+    for (auto& thread :threads){
+    thread.join();   
     }
     std::vector<float> final_snapshot = first_server.pull();
     std:: cout << "W: " << final_snapshot[0] << " B: " << final_snapshot[1] << "\n";
     return 0;
-}
+};
